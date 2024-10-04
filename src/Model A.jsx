@@ -1,250 +1,161 @@
 import React, { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableColumn,
-  TableRow,
   TableCell,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-  Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Label,
-  Select,
-  SelectItem,
-} from "@/components/ui";
-import { useDisclosure } from "@/hooks/use-disclosure";
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useForm } from "react-hook-form";
 
-const initialSnacks = [
-  {
-    id: 1,
-    name: "Granola Bar",
-    category: "Bars",
-    weight: "40g",
-    price: 1.5,
-    calories: 190,
-    ingredients: "oats, honey, nuts",
-    inStock: true,
-  },
-  {
-    id: 2,
-    name: "Fruit and Nut Mix",
-    category: "Nuts",
-    weight: "50g",
-    price: 2.0,
-    calories: 250,
-    ingredients: "dried fruits, almonds, cashews",
-    inStock: true,
-  },
-  {
-    id: 3,
-    name: "Veggie Chips",
-    category: "Chips",
-    weight: "30g",
-    price: 1.75,
-    calories: 140,
-    ingredients: "beetroot, sweet potato, sea salt",
-    inStock: false,
-  },
-  {
-    id: 4,
-    name: "Protein Balls",
-    category: "Health",
-    weight: "25g",
-    price: 2.5,
-    calories: 110,
-    ingredients: "protein powder, dates, cocoa",
-    inStock: true,
-  },
-];
+// Mock data for categories
+const categories = ["Chips", "Cookies", "Candy", "Drinks"];
 
-export default function App() {
-  const [snacks, setSnacks] = useState(initialSnacks);
-  const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [showInStock, setShowInStock] = useState(false);
-  const [selectedSnack, setSelectedSnack] = useState(null);
-  const { isOpen, onOpen, onClose } = useDisclosure();
+function SnackForm({ onSubmit, defaultValues = {} }) {
+  const { register, handleSubmit, reset } = useForm({ defaultValues });
 
-  const columns = useMemo(
-    () => [
-      { accessor: "id", header: "ID" },
-      { accessor: "name", header: "Product Name" },
-      { accessor: "category", header: "Category" },
-      { accessor: "weight", header: "Weight" },
-      { accessor: "price", header: "Price" },
-      { accessor: "calories", header: "Calories" },
-      { accessor: "inStock", header: "In Stock" },
-    ],
-    []
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <Input
+        {...register("name", { required: true })}
+        placeholder="Snack Name"
+      />
+      <Select {...register("category", { required: true })}>
+        {categories.map((cat) => (
+          <SelectItem key={cat} value={cat}>
+            {cat}
+          </SelectItem>
+        ))}
+      </Select>
+      <Input {...register("weight")} placeholder="Weight" type="number" />
+      <Input
+        {...register("price")}
+        placeholder="Price"
+        type="number"
+        step="0.01"
+      />
+      <Input {...register("calories")} placeholder="Calories" type="number" />
+      <Input {...register("ingredients")} placeholder="Ingredients" />
+      <Button type="submit">Submit</Button>
+      <Button type="button" onClick={() => reset()}>
+        Clear
+      </Button>
+    </form>
   );
+}
 
-  const filteredSnacks = useMemo(
-    () =>
-      snacks.filter(
-        (snack) =>
-          (snack.name.toLowerCase().includes(search.toLowerCase()) ||
-            snack.ingredients.toLowerCase().includes(search.toLowerCase())) &&
-          (filterCategory === "" || snack.category === filterCategory) &&
-          (!showInStock || snack.inStock)
-      ),
-    [snacks, search, filterCategory, showInStock]
-  );
+function App() {
+  const [snacks, setSnacks] = useState([]);
+  const [filter, setFilter] = useState({ name: "", category: "" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "ascending",
+  });
 
-  const sortedSnacks = useMemo(() => {
-    return [...filteredSnacks].sort((a, b) => {
-      if (a.name < b.name) return -1;
-      if (a.name > b.name) return 1;
-      return 0;
-    });
-  }, [filteredSnacks]);
-
-  const handleSort = (column) => {
-    // Here you would implement sorting logic for each column
-    console.log(`Sort by ${column}`);
+  // Adding a new snack
+  const addSnack = (newSnack) => {
+    setSnacks((prev) => [...prev, { ...newSnack, id: Date.now() }]);
   };
 
-  const addSnack = (newSnack) => {
-    setSnacks((prev) => [
-      ...prev,
-      { id: Math.max(...prev.map((s) => s.id), 0) + 1, ...newSnack },
-    ]);
-    onClose();
+  // Sorting function
+  const sortedSnacks = useMemo(() => {
+    let sortableSnacks = [...snacks];
+    if (sortConfig !== null) {
+      sortableSnacks.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key])
+          return sortConfig.direction === "ascending" ? -1 : 1;
+        if (a[sortConfig.key] > b[sortConfig.key])
+          return sortConfig.direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableSnacks.filter(
+      (snack) =>
+        snack.name.toLowerCase().includes(filter.name.toLowerCase()) &&
+        (filter.category === "" || snack.category === filter.category)
+    );
+  }, [snacks, filter, sortConfig]);
+
+  // Request a sort with a certain key
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6">
-      <div className="mb-4 flex flex-col sm:flex-row justify-between items-center">
+    <div className="container mx-auto p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Add New Snack</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SnackForm onSubmit={addSnack} />
+        </CardContent>
+      </Card>
+
+      <div className="mt-4 flex space-x-4">
         <Input
-          placeholder="Search by name or ingredients"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="mb-2 sm:mb-0 sm:mr-2"
+          placeholder="Filter by name"
+          value={filter.name}
+          onChange={(e) => setFilter({ ...filter, name: e.target.value })}
         />
-        <div className="flex space-x-2">
-          <Select onValueChange={setFilterCategory}>
-            <SelectItem value="">All Categories</SelectItem>
-            <SelectItem value="Bars">Bars</SelectItem>
-            <SelectItem value="Nuts">Nuts</SelectItem>
-            <SelectItem value="Chips">Chips</SelectItem>
-            <SelectItem value="Health">Health</SelectItem>
-          </Select>
-          <Button onClick={() => setShowInStock(!showInStock)}>
-            {showInStock ? "Show All" : "In Stock Only"}
-          </Button>
-          <Button onClick={onOpen}>Add Snack</Button>
-        </div>
-      </div>
-      <Table>
-        <TableHeader>
-          {columns.map((column) => (
-            <TableColumn
-              key={column.accessor}
-              onClick={() => handleSort(column.accessor)}
-            >
-              {column.header}
-            </TableColumn>
+        <Select
+          onValueChange={(value) => setFilter({ ...filter, category: value })}
+        >
+          <SelectItem value="">All Categories</SelectItem>
+          {categories.map((cat) => (
+            <SelectItem key={cat} value={cat}>
+              {cat}
+            </SelectItem>
           ))}
+        </Select>
+      </div>
+
+      <Table className="mt-4">
+        <TableHeader>
+          <TableRow>
+            {["Name", "Category", "Price", "Calories"].map((head) => (
+              <TableHead
+                key={head}
+                onClick={() => requestSort(head.toLowerCase())}
+              >
+                {head}{" "}
+                {sortConfig.key === head.toLowerCase()
+                  ? sortConfig.direction === "ascending"
+                    ? "↑"
+                    : "↓"
+                  : ""}
+              </TableHead>
+            ))}
+          </TableRow>
         </TableHeader>
         <TableBody>
           {sortedSnacks.map((snack) => (
-            <TableRow key={snack.id} onClick={() => setSelectedSnack(snack)}>
-              <TableCell>{snack.id}</TableCell>
+            <TableRow key={snack.id}>
               <TableCell>{snack.name}</TableCell>
               <TableCell>{snack.category}</TableCell>
-              <TableCell>{snack.weight}</TableCell>
-              <TableCell>${snack.price.toFixed(2)}</TableCell>
+              <TableCell>{snack.price}</TableCell>
               <TableCell>{snack.calories}</TableCell>
-              <TableCell>{snack.inStock ? "Yes" : "No"}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-
-      {selectedSnack && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>{selectedSnack.name}</CardTitle>
-            <CardDescription>{selectedSnack.category}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Weight: {selectedSnack.weight}</p>
-            <p>Price: ${selectedSnack.price.toFixed(2)}</p>
-            <p>Calories: {selectedSnack.calories}</p>
-            <p>Ingredients: {selectedSnack.ingredients}</p>
-            <p>In Stock: {selectedSnack.inStock ? "Yes" : "No"}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <Modal isOpen={isOpen} onClose={onClose}>
-        <ModalContent>
-          {(onClose) => <AddSnackForm onClose={onClose} onSubmit={addSnack} />}
-        </ModalContent>
-      </Modal>
     </div>
   );
 }
 
-function AddSnackForm({ onClose, onSubmit }) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
-  const [weight, setWeight] = useState("");
-  const [price, setPrice] = useState("");
-  const [calories, setCalories] = useState("");
-  const [ingredients, setIngredients] = useState("");
-  const [inStock, setInStock] = useState(true);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({
-      name,
-      category,
-      weight,
-      price: parseFloat(price),
-      calories: parseInt(calories),
-      ingredients,
-      inStock,
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <ModalHeader>Add New Snack</ModalHeader>
-      <ModalBody>
-        <div className="grid gap-4">
-          <Label htmlFor="name">Name</Label>
-          <Input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <Label htmlFor="category">Category</Label>
-          <Select id="category" onValueChange={setCategory}>
-            <SelectItem value="Bars">Bars</SelectItem>
-            <SelectItem value="Nuts">Nuts</SelectItem>
-            <SelectItem value="Chips">Chips</SelectItem>
-            <SelectItem value="Health">Health</SelectItem>
-          </Select>
-          {/* Add other fields similarly */}
-        </div>
-      </ModalBody>
-      <ModalFooter>
-        <Button type="submit">Add Snack</Button>
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-      </ModalFooter>
-    </form>
-  );
-}
+export default App;

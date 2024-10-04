@@ -1,5 +1,4 @@
-import React, { useState, useMemo } from "react";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -8,9 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -18,205 +14,393 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowUpDown, Search, Filter, Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 const initialSnacks = [
   {
     id: 1,
-    product_name: "Granola Bar",
-    product_weight: "21g",
-    price: 299,
-    calories: 150,
-    ingredients: ["Oats", "Honey", "Nuts", "Dried Fruits"],
+    name: "Granola Bar",
     category: "Bars",
-    in_stock: true,
+    weight: "50g",
+    price: 1.99,
+    calories: 200,
+    ingredients: "Oats, Honey, Nuts, Dried Fruit",
+    inStock: true,
   },
-  {
-    id: 2,
-    product_name: "Fruit and Nut Mix",
-    product_weight: "73g",
-    price: 749,
-    calories: 353,
-    ingredients: [
-      "Almonds",
-      "Cashews",
-      "Dried Cranberries",
-      "Dried Blueberries",
-    ],
-    category: "Nuts",
-    in_stock: true,
-  },
-  {
-    id: 3,
-    product_name: "Veggie Chips",
-    product_weight: "28g",
-    price: 279,
-    calories: 130,
-    ingredients: ["Sweet Potatoes", "Beets", "Kale", "Sea Salt"],
-    category: "Chips",
-    in_stock: false,
-  },
-  {
-    id: 4,
-    product_name: "Protein Balls",
-    product_weight: "100g",
-    price: 499,
-    calories: 318,
-    ingredients: ["Dates", "Almond Butter", "Protein Powder", "Chia Seeds"],
-    category: "Protein",
-    in_stock: true,
-  },
+  // ... (other snacks)
 ];
 
-const SnacksTable = ({ data, sortConfig, onSort, onRowClick }) => {
-  const getSortIcon = (column) => {
-    if (sortConfig.key === column) {
-      return sortConfig.direction === "ascending" ? "↑" : "↓";
+const categories = ["Bars", "Mixes", "Chips", "Balls"];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+
+export default function App() {
+  const [snacks, setSnacks] = useState(initialSnacks);
+  const [filteredSnacks, setFilteredSnacks] = useState(snacks);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showInStockOnly, setShowInStockOnly] = useState(false);
+  const [sortColumn, setSortColumn] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [selectedSnack, setSelectedSnack] = useState(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(3);
+  const [selectedSnacks, setSelectedSnacks] = useState([]);
+
+  useEffect(() => {
+    let result = snacks;
+
+    if (searchTerm) {
+      result = result.filter(
+        (snack) =>
+          snack.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          snack.ingredients.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-    return null;
+
+    if (selectedCategory && selectedCategory !== "all") {
+      result = result.filter((snack) => snack.category === selectedCategory);
+    }
+
+    if (showInStockOnly) {
+      result = result.filter((snack) => snack.inStock);
+    }
+
+    result = result.sort((a, b) => {
+      if (a[sortColumn] < b[sortColumn])
+        return sortDirection === "asc" ? -1 : 1;
+      if (a[sortColumn] > b[sortColumn])
+        return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredSnacks(result);
+    setCurrentPage(1);
+  }, [
+    snacks,
+    searchTerm,
+    selectedCategory,
+    showInStockOnly,
+    sortColumn,
+    sortDirection,
+  ]);
+
+  const handleAddSnack = (newSnack) => {
+    const nextId = Math.max(...snacks.map((s) => s.id)) + 1;
+    setSnacks([...snacks, { ...newSnack, id: nextId }]);
+    setIsAddDialogOpen(false);
   };
 
-  return (
-    <Table className="w-full border-collapse">
-      <TableHeader>
-        <TableRow>
-          {[
-            "ID",
-            "Product Name",
-            "Category",
-            "Product Weight",
-            "Price",
-            "Calories",
-            "Ingredients",
-            "In Stock",
-          ].map((header) => (
-            <TableHead
-              key={header}
-              className="p-2 text-left font-bold cursor-pointer hover:bg-gray-100"
-              onClick={() => onSort(header.toLowerCase().replace(" ", "_"))}
-            >
-              <div className="flex items-center">
-                {header}
-                <ArrowUpDown className="ml-2 h-4 w-4" />
-                {getSortIcon(header.toLowerCase().replace(" ", "_"))}
-              </div>
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.map((snack) => (
-          <TableRow
-            key={snack.id}
-            className="hover:bg-gray-50 cursor-pointer"
-            onClick={() => onRowClick(snack)}
-          >
-            <TableCell className="p-2">{snack.id}</TableCell>
-            <TableCell className="p-2 font-medium">
-              {snack.product_name}
-            </TableCell>
-            <TableCell className="p-2">
-              <Badge variant="secondary">{snack.category}</Badge>
-            </TableCell>
-            <TableCell className="p-2">{snack.product_weight}</TableCell>
-            <TableCell className="p-2">
-              ${(snack.price / 100).toFixed(2)}
-            </TableCell>
-            <TableCell className="p-2">{snack.calories}</TableCell>
-            <TableCell className="p-2">
-              {snack.ingredients.map((ingredient, index) => (
-                <Badge key={index} variant="outline" className="mr-1 mb-1">
-                  {ingredient}
-                </Badge>
-              ))}
-            </TableCell>
-            <TableCell className="p-2">
-              <Badge variant={snack.in_stock ? "success" : "destructive"}>
-                {snack.in_stock ? "In Stock" : "Out of Stock"}
-              </Badge>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-};
+  const handleEditSnack = (editedSnack) => {
+    setSnacks(
+      snacks.map((snack) => (snack.id === editedSnack.id ? editedSnack : snack))
+    );
+    setIsEditDialogOpen(false);
+    setSelectedSnack(null);
+  };
 
-const AddSnackForm = ({ onAddSnack, nextId }) => {
+  const handleBulkDelete = () => {
+    setSnacks(snacks.filter((snack) => !selectedSnacks.includes(snack.id)));
+    setSelectedSnacks([]);
+  };
+
+  const handleBulkToggleStock = () => {
+    setSnacks(
+      snacks.map((snack) =>
+        selectedSnacks.includes(snack.id)
+          ? { ...snack, inStock: !snack.inStock }
+          : snack
+      )
+    );
+    setSelectedSnacks([]);
+  };
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredSnacks.slice(indexOfFirstItem, indexOfLastItem);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const categoryData = categories.map((category) => ({
+    name: category,
+    value: snacks.filter((snack) => snack.category === category).length,
+  }));
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-4">Snack Inventory Management</h1>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Input
+          placeholder="Search by name or ingredients"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-grow"
+        />
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center">
+          <Checkbox
+            id="inStock"
+            checked={showInStockOnly}
+            onCheckedChange={setShowInStockOnly}
+          />
+          <Label htmlFor="inStock" className="ml-2">
+            In Stock Only
+          </Label>
+        </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>Add Snack</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Snack</DialogTitle>
+            </DialogHeader>
+            <AddSnackForm onAdd={handleAddSnack} />
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Select value={sortColumn} onValueChange={setSortColumn}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Name</SelectItem>
+            <SelectItem value="category">Category</SelectItem>
+            <SelectItem value="price">Price</SelectItem>
+            <SelectItem value="calories">Calories</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortDirection} onValueChange={setSortDirection}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Sort direction" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="asc">Ascending</SelectItem>
+            <SelectItem value="desc">Descending</SelectItem>
+          </SelectContent>
+        </Select>
+        {selectedSnacks.length > 0 && (
+          <>
+            <Button onClick={handleBulkDelete}>Delete Selected</Button>
+            <Button onClick={handleBulkToggleStock}>Toggle Stock</Button>
+          </>
+        )}
+      </div>
+      <div className="overflow-x-auto rounded-lg shadow mb-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">Select</TableHead>
+              <TableHead>ID</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Weight</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Calories</TableHead>
+              <TableHead>Ingredients</TableHead>
+              <TableHead>In Stock</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {currentItems.map((snack) => (
+              <TableRow key={snack.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedSnacks.includes(snack.id)}
+                    onCheckedChange={(checked) => {
+                      setSelectedSnacks(
+                        checked
+                          ? [...selectedSnacks, snack.id]
+                          : selectedSnacks.filter((id) => id !== snack.id)
+                      );
+                    }}
+                  />
+                </TableCell>
+                <TableCell>{snack.id}</TableCell>
+                <TableCell>{snack.name}</TableCell>
+                <TableCell>{snack.category}</TableCell>
+                <TableCell>{snack.weight}</TableCell>
+                <TableCell>${snack.price.toFixed(2)}</TableCell>
+                <TableCell>{snack.calories}</TableCell>
+                <TableCell>{snack.ingredients}</TableCell>
+                <TableCell>{snack.inStock ? "Yes" : "No"}</TableCell>
+                <TableCell>
+                  <Button
+                    onClick={() => {
+                      setSelectedSnack(snack);
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h2 className="text-xl font-bold mb-4">Category Distribution</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={categoryData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {categoryData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div className="mt-4 flex justify-center">
+        <Pagination
+          itemsPerPage={itemsPerPage}
+          totalItems={filteredSnacks.length}
+          paginate={paginate}
+          currentPage={currentPage}
+        />
+      </div>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Snack</DialogTitle>
+          </DialogHeader>
+          {selectedSnack && (
+            <EditSnackForm snack={selectedSnack} onEdit={handleEditSnack} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function CustomTooltip({ active, payload }) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-2 border border-gray-300 rounded shadow">
+        <p>{`${payload[0].name}: ${payload[0].value}`}</p>
+      </div>
+    );
+  }
+  return null;
+}
+
+function AddSnackForm({ onAdd }) {
   const [newSnack, setNewSnack] = useState({
-    product_name: "",
-    product_weight: "",
+    name: "",
+    category: "",
+    weight: "",
     price: "",
     calories: "",
     ingredients: "",
-    category: "",
-    in_stock: true,
+    inStock: true,
   });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setNewSnack((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAddSnack({
+    onAdd({
       ...newSnack,
-      id: nextId,
-      price: parseFloat(newSnack.price) * 100,
+      price: parseFloat(newSnack.price),
       calories: parseInt(newSnack.calories),
-      ingredients: newSnack.ingredients.split(",").map((item) => item.trim()),
-    });
-    setNewSnack({
-      product_name: "",
-      product_weight: "",
-      price: "",
-      calories: "",
-      ingredients: "",
-      category: "",
-      in_stock: true,
     });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="product_name">Product Name</Label>
+        <Label htmlFor="name">Product Name</Label>
         <Input
-          id="product_name"
-          value={newSnack.product_name}
-          onChange={(e) =>
-            setNewSnack({ ...newSnack, product_name: e.target.value })
-          }
+          id="name"
+          name="name"
+          value={newSnack.name}
+          onChange={handleChange}
           required
         />
       </div>
       <div>
         <Label htmlFor="category">Category</Label>
-        <Input
-          id="category"
+        <Select
+          name="category"
           value={newSnack.category}
-          onChange={(e) =>
-            setNewSnack({ ...newSnack, category: e.target.value })
+          onValueChange={(value) =>
+            setNewSnack((prev) => ({ ...prev, category: value }))
           }
-          required
-        />
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div>
-        <Label htmlFor="product_weight">Product Weight</Label>
+        <Label htmlFor="weight">Weight</Label>
         <Input
-          id="product_weight"
-          value={newSnack.product_weight}
-          onChange={(e) =>
-            setNewSnack({ ...newSnack, product_weight: e.target.value })
-          }
+          id="weight"
+          name="weight"
+          value={newSnack.weight}
+          onChange={handleChange}
           required
         />
       </div>
       <div>
-        <Label htmlFor="price">Price ($)</Label>
+        <Label htmlFor="price">Price</Label>
         <Input
           id="price"
+          name="price"
           type="number"
           step="0.01"
           value={newSnack.price}
-          onChange={(e) => setNewSnack({ ...newSnack, price: e.target.value })}
+          onChange={handleChange}
           required
         />
       </div>
@@ -224,204 +408,175 @@ const AddSnackForm = ({ onAddSnack, nextId }) => {
         <Label htmlFor="calories">Calories</Label>
         <Input
           id="calories"
+          name="calories"
           type="number"
           value={newSnack.calories}
-          onChange={(e) =>
-            setNewSnack({ ...newSnack, calories: e.target.value })
-          }
+          onChange={handleChange}
           required
         />
       </div>
       <div>
-        <Label htmlFor="ingredients">Ingredients (comma-separated)</Label>
+        <Label htmlFor="ingredients">Ingredients</Label>
         <Input
           id="ingredients"
+          name="ingredients"
           value={newSnack.ingredients}
-          onChange={(e) =>
-            setNewSnack({ ...newSnack, ingredients: e.target.value })
-          }
+          onChange={handleChange}
           required
         />
       </div>
-      <div className="flex items-center space-x-2">
-        <input
-          id="in_stock"
-          type="checkbox"
-          checked={newSnack.in_stock}
-          onChange={(e) =>
-            setNewSnack({ ...newSnack, in_stock: e.target.checked })
+      <div className="flex items-center">
+        <Checkbox
+          id="inStock"
+          checked={newSnack.inStock}
+          onCheckedChange={(checked) =>
+            setNewSnack((prev) => ({ ...prev, inStock: checked }))
           }
         />
-        <Label htmlFor="in_stock">In Stock</Label>
+        <Label htmlFor="inStock" className="ml-2">
+          In Stock
+        </Label>
       </div>
       <Button type="submit">Add Snack</Button>
     </form>
   );
-};
+}
 
-const App = () => {
-  const [snacks, setSnacks] = useState(initialSnacks);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: "id",
-    direction: "ascending",
-  });
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [showOnlyInStock, setShowOnlyInStock] = useState(false);
-  const [selectedSnack, setSelectedSnack] = useState(null);
+function EditSnackForm({ snack, onEdit }) {
+  const [editedSnack, setEditedSnack] = useState(snack);
 
-  const nextId = useMemo(
-    () => Math.max(...snacks.map((snack) => snack.id)) + 1,
-    [snacks]
-  );
-
-  const filteredSnacks = useMemo(() => {
-    return snacks.filter(
-      (snack) =>
-        (snack.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          snack.ingredients.some((ingredient) =>
-            ingredient.toLowerCase().includes(searchTerm.toLowerCase())
-          )) &&
-        (categoryFilter === "All" || snack.category === categoryFilter) &&
-        (!showOnlyInStock || snack.in_stock)
-    );
-  }, [snacks, searchTerm, categoryFilter, showOnlyInStock]);
-
-  const sortedSnacks = useMemo(() => {
-    let sortableItems = [...filteredSnacks];
-    if (sortConfig.key !== null) {
-      sortableItems.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === "ascending" ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === "ascending" ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-    return sortableItems;
-  }, [filteredSnacks, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = "ascending";
-    if (sortConfig.key === key && sortConfig.direction === "ascending") {
-      direction = "descending";
-    }
-    setSortConfig({ key, direction });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditedSnack((prev) => ({ ...prev, [name]: value }));
   };
 
-  const categories = ["All", ...new Set(snacks.map((snack) => snack.category))];
-
-  const handleRowClick = (snack) => {
-    setSelectedSnack(snack);
-  };
-
-  const handleAddSnack = (newSnack) => {
-    setSnacks([...snacks, newSnack]);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onEdit({
+      ...editedSnack,
+      price: parseFloat(editedSnack.price),
+      calories: parseInt(editedSnack.calories),
+    });
   };
 
   return (
-    <div className="container mx-auto p-4 bg-gray-50 min-h-screen">
-      <Card className="mb-8 shadow-lg">
-        <CardHeader className="bg-primary text-white">
-          <CardTitle className="text-3xl font-bold text-center">
-            Snacks Inventory
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <div className="flex-grow">
-              <Input
-                type="text"
-                placeholder="Search by product name or ingredients"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-                icon={<Search className="h-4 w-4" />}
-              />
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="p-2 border rounded"
-              >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              <Button
-                variant={showOnlyInStock ? "default" : "outline"}
-                onClick={() => setShowOnlyInStock(!showOnlyInStock)}
-              >
-                In Stock Only
-              </Button>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Snack
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Snack</DialogTitle>
-                  </DialogHeader>
-                  <AddSnackForm onAddSnack={handleAddSnack} nextId={nextId} />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <SnacksTable
-              data={sortedSnacks}
-              sortConfig={sortConfig}
-              onSort={requestSort}
-              onRowClick={handleRowClick}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {selectedSnack && (
-        <Card className="mb-8 shadow-lg">
-          <CardHeader className="bg-secondary text-white">
-            <CardTitle className="text-2xl font-bold">
-              Selected Snack Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <h3 className="text-xl font-semibold mb-2">
-              {selectedSnack.product_name}
-            </h3>
-            <p>
-              <strong>Category:</strong> {selectedSnack.category}
-            </p>
-            <p>
-              <strong>Weight:</strong> {selectedSnack.product_weight}
-            </p>
-            <p>
-              <strong>Price:</strong> ${(selectedSnack.price / 100).toFixed(2)}
-            </p>
-            <p>
-              <strong>Calories:</strong> {selectedSnack.calories}
-            </p>
-            <p>
-              <strong>Ingredients:</strong>{" "}
-              {selectedSnack.ingredients.join(", ")}
-            </p>
-            <p>
-              <strong>Status:</strong>{" "}
-              {selectedSnack.in_stock ? "In Stock" : "Out of Stock"}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Product Name</Label>
+        <Input
+          id="name"
+          name="name"
+          value={editedSnack.name}
+          onChange={handleChange}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="category">Category</Label>
+        <Select
+          name="category"
+          value={editedSnack.category}
+          onValueChange={(value) =>
+            setEditedSnack((prev) => ({ ...prev, category: value }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="weight">Weight</Label>
+        <Input
+          id="weight"
+          name="weight"
+          value={editedSnack.weight}
+          onChange={handleChange}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="price">Price</Label>
+        <Input
+          id="price"
+          name="price"
+          type="number"
+          step="0.01"
+          value={editedSnack.price}
+          onChange={handleChange}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="calories">Calories</Label>
+        <Input
+          id="calories"
+          name="calories"
+          type="number"
+          value={editedSnack.calories}
+          onChange={handleChange}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="ingredients">Ingredients</Label>
+        <Input
+          id="ingredients"
+          name="ingredients"
+          value={editedSnack.ingredients}
+          onChange={handleChange}
+          required
+        />
+      </div>
+      <div className="flex items-center">
+        <Checkbox
+          id="inStock"
+          checked={editedSnack.inStock}
+          onCheckedChange={(checked) =>
+            setEditedSnack((prev) => ({ ...prev, inStock: checked }))
+          }
+        />
+        <Label htmlFor="inStock" className="ml-2">
+          In Stock
+        </Label>
+      </div>
+      <Button type="submit">Save Changes</Button>
+    </form>
   );
-};
+}
 
-export default App;
+function Pagination({ itemsPerPage, totalItems, paginate, currentPage }) {
+  const pageNumbers = [];
+
+  for (let i = 1; i <= Math.ceil(totalItems / itemsPerPage); i++) {
+    pageNumbers.push(i);
+  }
+
+  return (
+    <nav className="flex justify-center mt-4">
+      <ul className="flex space-x-2">
+        {pageNumbers.map((number) => (
+          <li key={number}>
+            <Button
+              onClick={() => paginate(number)}
+              className={`px-3 py-1 ${
+                currentPage === number
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200 text-gray-700"
+              } rounded hover:bg-blue-600 hover:text-white transition-colors duration-200`}
+            >
+              {number}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
